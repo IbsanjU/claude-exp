@@ -5,19 +5,18 @@ WORKDIR /app
 # Copy package files
 COPY backend/package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (including dev for build)
+RUN npm ci
 
 # Copy source code
 COPY backend/tsconfig.json ./
 COPY backend/src ./src
 
 # Build TypeScript
-RUN npm install -g typescript
 RUN npm run build
 
 # Remove dev dependencies and source
-RUN npm prune --production
+RUN npm prune --omit=dev
 RUN rm -rf src tsconfig.json
 
 EXPOSE 3001
