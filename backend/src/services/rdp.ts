@@ -30,7 +30,9 @@ export class RDPService extends EventEmitter {
         const protocol = 'rdp';
         const selectInstruction = `6.select,3.${protocol};`;
         console.log('Sending select instruction:', selectInstruction);
-        this.socket.write(selectInstruction);
+        if (this.socket) {
+          this.socket.write(selectInstruction);
+        }
       });
 
       this.socket.on('data', (data) => {
