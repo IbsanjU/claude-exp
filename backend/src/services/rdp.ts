@@ -6,6 +6,7 @@ export class RDPService extends EventEmitter {
   private socket: net.Socket | null = null;
   private connected: boolean = false;
   private config: RDPConnection | null = null;
+  private argsReceived: string[] = [];
 
   constructor() {
     super();
@@ -49,8 +50,9 @@ export class RDPService extends EventEmitter {
           console.log('Processing instruction:', instruction);
 
           if (instruction.includes('args')) {
-            // Server sent args instruction, respond with connection parameters
-            console.log('Received args instruction, sending connection parameters');
+            // Server sent args instruction, parse and respond with connection parameters
+            console.log('Received args instruction, parsing parameters');
+            this.parseArgsInstruction(instruction);
             this.sendConnectionParameters();
           } else if (instruction.includes('ready')) {
             // Connection is ready
@@ -102,10 +104,25 @@ export class RDPService extends EventEmitter {
     });
   }
 
-  private sendConnectionParameters(): void {
-    if (!this.socket || !this.config) return;
+  private parseArgsInstruction(instruction: string): void {
+    // Parse: 4.args,13.VERSION_1_5_0,8.hostname,4.port,...
+    const parts = instruction.split(',');
+    this.argsReceived = [];
 
-    // Build connection parameters
+    // Skip first element (4.args) and extract parameter names
+    for (let i = 1; i < parts.length; i++) {
+      const match = parts[i].match(/^\d+\.(.+)$/);
+      if (match) {
+        this.argsReceived.push(match[1]);
+      }
+    }
+    console.log('Parsed args:', this.argsReceived.join(', '));
+  }
+
+  private sendConnectionParameters(): void {
+    if (!this.socket || !this.config || this.argsReceived.length === 0) return;
+
+    // Build connection parameters map
     const params: Record<string, string> = {
       'hostname': this.config.host,
       'port': String(this.config.port || 3389),
@@ -122,19 +139,18 @@ export class RDPService extends EventEmitter {
       params['domain'] = this.config.domain;
     }
 
-    // Build and send connect instruction with all parameters
-    // Format: length.instruction,length.param1,length.value1,length.param2,length.value2...;
+    // Build connect instruction with ALL parameters in the order specified by args
+    // Format: length.connect,length.value1,length.value2,...
     let connectInstruction = '7.connect';
-    for (const [key, value] of Object.entries(params)) {
-      connectInstruction += `,${key.length}.${key}`;
-      if (value) {
-        connectInstruction += `,${value.length}.${value}`;
-      } else {
-        connectInstruction += ',0.';
-      }
+
+    for (const paramName of this.argsReceived) {
+      const value = params[paramName] || '';
+      connectInstruction += `,${value.length}.${value}`;
     }
+
     connectInstruction += ';';
-    console.log('Sending connect instruction:', connectInstruction);
+    console.log('Sending connect instruction with', this.argsReceived.length, 'parameters');
+    console.log('Connect instruction:', connectInstruction.substring(0, 200) + '...');
     this.socket.write(connectInstruction);
   }
 
