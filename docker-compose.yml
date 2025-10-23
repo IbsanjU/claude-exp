@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - FRONTEND_URL=http://localhost
+      - SESSION_SECRET=change-this-secret-in-production
+    restart: unless-stopped
+    networks:
+      - web-terminal
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - web-terminal
+
+  # Optional: Guacamole server for RDP support
+  # Uncomment if you want full RDP functionality
+  # guacd:
+  #   image: guacamole/guacd
+  #   ports:
+  #     - "4822:4822"
+  #   restart: unless-stopped
+  #   networks:
+  #     - web-terminal
+
+networks:
+  web-terminal:
+    driver: bridge
