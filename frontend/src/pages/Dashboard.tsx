@@ -3,8 +3,16 @@ import { Terminal } from '../components/Terminal';
 import { RDPViewer } from '../components/RDPViewer';
 import { ConnectionList } from '../components/ConnectionList';
 import { ConnectionForm } from '../components/ConnectionForm';
+import { Notification } from '../components/Notification';
 import { Connection } from '../types';
-import { connectionsApi, authApi } from '../services/api';
+import { authApi } from '../services/api';
+import { connectionStorage } from '../services/storage';
+import { v4 as uuidv4 } from 'uuid';
+
+interface NotificationState {
+  message: string;
+  type: 'error' | 'success' | 'info';
+}
 
 export const Dashboard: React.FC = () => {
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -12,47 +20,62 @@ export const Dashboard: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingConnection, setEditingConnection] = useState<Connection | null>(null);
   const [view, setView] = useState<'list' | 'terminal'>('list');
+  const [notification, setNotification] = useState<NotificationState | null>(null);
 
   useEffect(() => {
     loadConnections();
   }, []);
 
-  const loadConnections = async () => {
+  const loadConnections = () => {
     try {
-      const data = await connectionsApi.getAll();
+      const data = connectionStorage.getAll();
       setConnections(data);
     } catch (error) {
       console.error('Failed to load connections:', error);
+      showNotification('Failed to load connections', 'error');
     }
   };
 
-  const handleSaveConnection = async (connection: Omit<Connection, 'id' | 'createdAt'>) => {
+  const showNotification = (message: string, type: 'error' | 'success' | 'info') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 5000);
+  };
+
+  const handleSaveConnection = (connection: Omit<Connection, 'id' | 'createdAt'>) => {
     try {
       if (editingConnection) {
-        await connectionsApi.update(editingConnection.id, connection);
+        connectionStorage.update(editingConnection.id, connection);
+        showNotification('Connection updated successfully', 'success');
       } else {
-        await connectionsApi.create(connection);
+        const newConnection: Connection = {
+          ...connection,
+          id: uuidv4(),
+          createdAt: new Date(),
+        };
+        connectionStorage.add(newConnection);
+        showNotification('Connection saved successfully', 'success');
       }
-      await loadConnections();
+      loadConnections();
       setShowForm(false);
       setEditingConnection(null);
     } catch (error) {
       console.error('Failed to save connection:', error);
-      alert('Failed to save connection');
+      showNotification('Failed to save connection', 'error');
     }
   };
 
-  const handleDeleteConnection = async (id: string) => {
+  const handleDeleteConnection = (id: string) => {
     if (!confirm('Are you sure you want to delete this connection?')) {
       return;
     }
 
     try {
-      await connectionsApi.delete(id);
-      await loadConnections();
+      connectionStorage.delete(id);
+      loadConnections();
+      showNotification('Connection deleted successfully', 'success');
     } catch (error) {
       console.error('Failed to delete connection:', error);
-      alert('Failed to delete connection');
+      showNotification('Failed to delete connection', 'error');
     }
   };
 
@@ -103,6 +126,13 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div style={{ minHeight: '100vh', background: '#1e1e1e', color: '#fff' }}>
+      {notification && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(null)}
+        />
+      )}
       <div style={{
         background: '#2d2d2d',
         padding: '15px 20px',

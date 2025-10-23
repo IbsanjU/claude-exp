@@ -25,6 +25,12 @@ export class RDPService extends EventEmitter {
       this.socket.on('connect', () => {
         console.log('Connected to Guacamole daemon');
         this.connected = true;
+
+        // Immediately send select instruction to choose RDP protocol
+        const protocol = 'rdp';
+        const selectInstruction = `6.select,3.${protocol};`;
+        console.log('Sending select instruction:', selectInstruction);
+        this.socket.write(selectInstruction);
       });
 
       this.socket.on('data', (data) => {
@@ -38,13 +44,12 @@ export class RDPService extends EventEmitter {
         // Process complete instructions (last one might be incomplete)
         for (let i = 0; i < instructions.length - 1; i++) {
           const instruction = instructions[i];
+          console.log('Processing instruction:', instruction);
+
           if (instruction.includes('args')) {
-            // Server sent args instruction, now we can send our handshake
-            console.log('Received args instruction, sending handshake');
-            this.initializeGuacamoleProtocol();
-            handshakeComplete = true;
-            this.emit('connected');
-            resolve();
+            // Server sent args instruction, respond with connection parameters
+            console.log('Received args instruction, sending connection parameters');
+            this.sendConnectionParameters();
           } else if (instruction.includes('ready')) {
             // Connection is ready
             console.log('Connection ready');
@@ -56,6 +61,7 @@ export class RDPService extends EventEmitter {
           } else if (instruction.includes('error')) {
             // Error occurred
             const error = new Error('Guacamole connection error: ' + instruction);
+            console.error('Guacamole error:', error);
             this.emit('error', error);
             if (!handshakeComplete) {
               reject(error);
@@ -94,36 +100,28 @@ export class RDPService extends EventEmitter {
     });
   }
 
-  private initializeGuacamoleProtocol(): void {
+  private sendConnectionParameters(): void {
     if (!this.socket || !this.config) return;
 
-    // Guacamole protocol handshake
-    // Step 1: Send select instruction to choose RDP protocol
-    const protocol = 'rdp';
-    const selectInstruction = `6.select,${protocol.length}.${protocol};`;
-    console.log('Sending select instruction:', selectInstruction);
-    this.socket.write(selectInstruction);
-
-    // Step 2: Build connection parameters
+    // Build connection parameters
     const params: Record<string, string> = {
       'hostname': this.config.host,
       'port': String(this.config.port || 3389),
       'username': this.config.username || '',
       'password': this.config.password || '',
       'security': this.config.security || 'any',
-      'ignore-cert': this.config.ignoreCert ? 'true' : 'false'
+      'ignore-cert': this.config.ignoreCert ? 'true' : 'false',
+      'width': '1024',
+      'height': '768',
+      'dpi': '96'
     };
 
     if (this.config.domain) {
       params['domain'] = this.config.domain;
     }
 
-    // Step 3: Send size instruction (required)
-    const sizeInstruction = '4.size,1.0,4.1024,3.768;';
-    console.log('Sending size instruction:', sizeInstruction);
-    this.socket.write(sizeInstruction);
-
-    // Step 4: Build and send connect instruction with all parameters
+    // Build and send connect instruction with all parameters
+    // Format: length.instruction,length.param1,length.value1,length.param2,length.value2...;
     let connectInstruction = '7.connect';
     for (const [key, value] of Object.entries(params)) {
       connectInstruction += `,${key.length}.${key}`;

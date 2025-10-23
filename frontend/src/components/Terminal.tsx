@@ -18,6 +18,7 @@ export const Terminal: React.FC<TerminalProps> = ({ connection, onClose }) => {
   const wsRef = useRef<WebSocketService | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -80,7 +81,9 @@ export const Terminal: React.FC<TerminalProps> = ({ connection, onClose }) => {
 
     ws.on('error', (message) => {
       setStatus('error');
-      term.writeln(`\r\nError: ${message.data}`);
+      const errorMsg = message.data || 'Unknown error occurred';
+      setErrorMessage(errorMsg);
+      term.writeln(`\r\n\x1b[31mError: ${errorMsg}\x1b[0m`);
     });
 
     ws.on('disconnect', () => {
@@ -135,7 +138,9 @@ export const Terminal: React.FC<TerminalProps> = ({ connection, onClose }) => {
         alignItems: 'center',
       }}>
         <div>
-          <strong>{connection.name}</strong> - {status}
+          <strong>{connection.name}</strong> - <span style={{
+            color: status === 'connected' ? '#5cb85c' : status === 'error' ? '#d9534f' : '#f0ad4e'
+          }}>{status}</span>
         </div>
         <button
           onClick={onClose}
@@ -151,6 +156,16 @@ export const Terminal: React.FC<TerminalProps> = ({ connection, onClose }) => {
           Close
         </button>
       </div>
+      {errorMessage && (
+        <div style={{
+          padding: '10px',
+          background: '#d9534f',
+          color: '#fff',
+          borderBottom: '1px solid #c9302c',
+        }}>
+          <strong>Error:</strong> {errorMessage}
+        </div>
+      )}
       <div ref={terminalRef} style={{ flex: 1, padding: '10px' }} />
     </div>
   );
