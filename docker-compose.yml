@@ -12,9 +12,13 @@ services:
       - PORT=3001
       - FRONTEND_URL=http://localhost
       - SESSION_SECRET=change-this-secret-in-production
+      - GUACAMOLE_HOST=guacd
+      - GUACAMOLE_PORT=4822
     restart: unless-stopped
     networks:
       - web-terminal
+    depends_on:
+      - guacd
 
   frontend:
     build:
@@ -28,15 +32,12 @@ services:
     networks:
       - web-terminal
 
-  # Optional: Guacamole server for RDP support
-  # Uncomment if you want full RDP functionality
-  # guacd:
-  #   image: guacamole/guacd
-  #   ports:
-  #     - "4822:4822"
-  #   restart: unless-stopped
-  #   networks:
-  #     - web-terminal
+  # Guacamole server for RDP support
+  guacd:
+    image: guacamole/guacd
+    restart: unless-stopped
+    networks:
+      - web-terminal
 
 networks:
   web-terminal:

@@ -75,20 +75,13 @@ async function handleConnect(ws: WebSocket, message: WSMessage): Promise<void> {
 
     if (data.type === 'ssh') {
       service = new SSHService();
-      const config: SSHConnection = data.config;
-
-      await service.connect(config);
-      await (service as SSHService).startShell(data.cols || 80, data.rows || 24);
     } else if (data.type === 'rdp') {
       service = new RDPService();
-      const config: RDPConnection = data.config;
-
-      await service.connect(config);
     } else {
       return sendError(ws, 'Invalid connection type');
     }
 
-    // Setup event handlers
+    // Setup event handlers BEFORE connecting
     service.on('data', (data: Buffer) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
@@ -112,6 +105,16 @@ async function handleConnect(ws: WebSocket, message: WSMessage): Promise<void> {
       }
       activeSessions.delete(sessionId);
     });
+
+    // Now connect
+    if (data.type === 'ssh') {
+      const config: SSHConnection = data.config;
+      await service.connect(config);
+      await (service as SSHService).startShell(data.cols || 80, data.rows || 24);
+    } else if (data.type === 'rdp') {
+      const config: RDPConnection = data.config;
+      await service.connect(config);
+    }
 
     activeSessions.set(sessionId, {
       id: sessionId,
