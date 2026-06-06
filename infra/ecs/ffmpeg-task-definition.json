@@ -1,0 +1,33 @@
+{
+  "family": "ffmpeg-relay",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ffmpegTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "ffmpeg",
+      "image": "jrottenberg/ffmpeg:4.4-alpine",
+      "essential": true,
+      "command": [
+        "sh", "-c",
+        "ffmpeg -re -i \"$INPUT_URL\" -c:v libx264 -preset veryfast -b:v 3000k -maxrate 3500k -bufsize 6000k -c:a aac -b:a 128k $([ \"$LOOP\" = \"1\" ] && echo '-stream_loop -1') -f flv \"$OUTPUT_URL\""
+      ],
+      "environment": [
+        { "name": "INPUT_URL", "value": "" },
+        { "name": "OUTPUT_URL", "value": "" },
+        { "name": "LOOP", "value": "0" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/ffmpeg-relay",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ffmpeg"
+        }
+      }
+    }
+  ]
+}

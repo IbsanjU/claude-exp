@@ -7,14 +7,23 @@ const router = express.Router();
 // In-memory user storage (replace with database in production)
 const users = new Map<string, any>();
 
-// Demo user for testing
+// Demo users for testing
 const DEMO_USER = {
   id: uuidv4(),
   username: 'demo',
   passwordHash: bcrypt.hashSync('demo', 10),
+  role: 'broadcaster',
+  createdAt: new Date()
+};
+const VIEWER_USER = {
+  id: uuidv4(),
+  username: 'viewer',
+  passwordHash: bcrypt.hashSync('viewer', 10),
+  role: 'viewer',
   createdAt: new Date()
 };
 users.set('demo', DEMO_USER);
+users.set('viewer', VIEWER_USER);
 
 router.post('/login', async (req, res) => {
   try {
@@ -36,10 +45,12 @@ router.post('/login', async (req, res) => {
 
     (req.session as any).userId = user.id;
     (req.session as any).username = user.username;
+    (req.session as any).role = user.role || 'viewer';
 
     res.json({
       id: user.id,
-      username: user.username
+      username: user.username,
+      role: user.role || 'viewer'
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -69,7 +80,8 @@ router.get('/me', (req, res) => {
 
   res.json({
     id: user.id,
-    username: user.username
+    username: user.username,
+    role: user.role || 'viewer'
   });
 });
 

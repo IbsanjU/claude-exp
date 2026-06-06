@@ -14,6 +14,20 @@ services:
       - SESSION_SECRET=change-this-secret-in-production
       - GUACAMOLE_HOST=guacd
       - GUACAMOLE_PORT=4822
+      # Streaming provider: "mock" (default) or "ivs"
+      - STREAMING_PROVIDER=mock
+      # AWS credentials (required when STREAMING_PROVIDER=ivs)
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=
+      - AWS_SECRET_ACCESS_KEY=
+      # IVS resources (required when STREAMING_PROVIDER=ivs)
+      - IVS_RECORDING_BUCKET=
+      - IVS_RECORDING_CONFIG_ARN=
+      # ECS resources for FFmpeg relay (optional)
+      - ECS_CLUSTER=
+      - FFMPEG_TASK_DEFINITION=
+      - ECS_SUBNET_ID=
+      - ECS_SECURITY_GROUP_ID=
     restart: unless-stopped
     networks:
       - web-terminal

@@ -7,6 +7,10 @@ import { WebSocketServer } from 'ws';
 import { setupWebSocket } from './services/websocket';
 import connectionRoutes from './routes/connections';
 import authRoutes from './routes/auth';
+import channelRoutes from './routes/channels';
+import streamRoutes from './routes/streams';
+import recordingRoutes from './routes/recordings';
+import { getProvider } from './services/streaming/provider';
 
 dotenv.config();
 
@@ -33,6 +37,9 @@ app.use(session({
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/connections', connectionRoutes);
+app.use('/api/channels', channelRoutes);
+app.use('/api/streams', streamRoutes);
+app.use('/api/recordings', recordingRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -48,6 +55,7 @@ setupWebSocket(wss);
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`WebSocket server running on ws://localhost:${PORT}/terminal`);
+  getProvider(); // initialize streaming provider on startup
 });
 
 // Graceful shutdown
