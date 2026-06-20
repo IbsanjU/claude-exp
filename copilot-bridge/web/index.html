@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Copilot Bridge</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<style>
+:root {
+  --bg:      #1e1e1e;  --bg2: #252526; --bg3: #2d2d2d; --bg4: #3c3c3c;
+  --border:  #3a3a3a;  --text: #cccccc; --muted: #6d6d6d;
+  --accent:  #007acc;  --purple: #c586c0; --teal: #4ec9b0;
+  --red:     #f48771;  --blue: #264f78;  --code: #9cdcfe;
+}
+*  { box-sizing: border-box; margin: 0; padding: 0; }
+input, textarea, select, button { font-family: inherit; font-size: 13px; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: "Segoe UI", -apple-system, system-ui, sans-serif;
+  font-size: 13px; height: 100vh; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+/* ── Topbar ── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 14px; background: var(--bg2); border-bottom: 1px solid var(--border);
+  flex-shrink: 0; user-select: none;
+}
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 700; color: #e0e0e0; font-size: 14px; }
+.chip {
+  font-size: 10px; padding: 2px 9px; border-radius: 10px;
+  background: var(--bg3); color: var(--muted); border: 1px solid var(--border);
+}
+.chip.ok  { background: #173317; color: var(--teal);   border-color: #2a5a2a; }
+.chip.err { background: #3a1a1a; color: var(--red);    border-color: #5a2a2a; }
+.chip.hi  { background: #1a2a3a; color: var(--accent); border-color: #2a4a6a; }
+.tb-right { display: flex; align-items: center; gap: 10px; }
+.ctx-info { font-size: 11px; color: var(--muted); max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-btn   { background: none; border: none; cursor: pointer; color: var(--muted); padding: 4px 8px; border-radius: 4px; }
+.tb-btn:hover { background: var(--bg3); color: var(--text); }
+
+/* ── Layout ── */
+.layout { display: flex; flex: 1; overflow: hidden; }
+
+/* ── Sidebar: Command Library ── */
+.library {
+  width: 215px; min-width: 180px; background: var(--bg2);
+  border-right: 1px solid var(--border); display: flex;
+  flex-direction: column; flex-shrink: 0;
+}
+.phead {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 10px; border-bottom: 1px solid var(--border);
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px;
+  color: var(--muted); user-select: none; flex-shrink: 0;
+}
+.xs-btn {
+  background: var(--accent); border: none; color: #fff;
+  border-radius: 3px; padding: 2px 8px; cursor: pointer; font-size: 11px;
+}
+.srch { padding: 6px 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.srch input {
+  width: 100%; background: var(--bg4); border: 1px solid var(--border);
+  border-radius: 3px; color: var(--text); padding: 4px 8px; outline: none; font-size: 12px;
+}
+.cmd-list { flex: 1; overflow-y: auto; }
+.cat-lbl {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px;
+  color: var(--muted); padding: 7px 10px 3px; user-select: none;
+}
+.cmd-row {
+  display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+  cursor: pointer; border-left: 2px solid transparent; transition: background .1s;
+}
+.cmd-row:hover { background: var(--bg3); }
+.cmd-row.sel   { background: var(--blue); border-left-color: var(--accent); color: #dce7f3; }
+.cmd-icon  { font-size: 13px; }
+.cmd-lbl   { flex: 1; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.del-btn   { background: none; border: none; cursor: pointer; color: var(--muted); padding: 1px 4px; opacity: 0; border-radius: 3px; line-height: 1; font-size: 15px; }
+.cmd-row:hover .del-btn { opacity: 1; }
+.del-btn:hover { color: var(--red); }
+
+/* ── Center: Editor ── */
+.editor {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; border-right: 1px solid var(--border); min-width: 0;
+}
+.ed-head {
+  display: flex; align-items: center; gap: 8px; padding: 7px 13px;
+  background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.name-in {
+  flex: 1; background: none; border: none; color: #e0e0e0;
+  font-size: 14px; font-weight: 600; outline: none;
+}
+.name-in::placeholder { color: var(--muted); }
+.cat-in {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 3px;
+  color: var(--muted); padding: 2px 8px; font-size: 11px; outline: none; width: 110px;
+}
+.ed-body { flex: 1; overflow-y: auto; padding: 13px 14px; display: flex; flex-direction: column; gap: 14px; }
+.slbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); margin-bottom: 5px; }
+.tpl-area {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text); padding: 10px 12px; resize: vertical; outline: none;
+  min-height: 80px; line-height: 1.55; font-family: 'Consolas', monospace; font-size: 13px;
+}
+.tpl-area:focus { border-color: var(--accent); }
+.hint { font-size: 11px; color: #4a4a4a; margin-top: 4px; }
+.hint code { color: var(--code); background: var(--bg3); padding: 1px 4px; border-radius: 2px; }
+
+.var-list { display: flex; flex-direction: column; gap: 6px; }
+.var-row  { display: flex; align-items: center; gap: 8px; }
+.var-tag  { font-size: 11px; color: var(--code); font-family: monospace; min-width: 105px; background: var(--bg3); padding: 3px 7px; border-radius: 3px; flex-shrink: 0; }
+.var-inp  { flex: 1; background: var(--bg4); border: 1px solid var(--border); border-radius: 4px; color: var(--text); padding: 5px 9px; outline: none; font-size: 12px; }
+.var-inp:focus { border-color: var(--accent); }
+.var-auto { font-size: 11px; color: var(--teal); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ctx-box { background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
+.ctx-row { display: flex; align-items: flex-start; gap: 6px; padding: 5px 10px; border-bottom: 1px solid var(--border); font-size: 12px; }
+.ctx-row:last-child { border-bottom: none; }
+.ctx-k   { min-width: 78px; color: var(--muted); font-size: 11px; flex-shrink: 0; padding-top: 1px; }
+.ctx-v   { color: var(--text); font-family: monospace; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-v.hi { color: var(--code); }
+.ctx-v.warn { color: var(--red); font-size: 11px; }
+
+.opts { display: flex; flex-direction: column; gap: 7px; }
+.opt-row { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 12px; color: var(--muted); }
+.opt-row input { cursor: pointer; }
+
+.ed-foot {
+  padding: 9px 13px; background: var(--bg2); border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.save-btn { background: var(--bg4); border: 1px solid var(--border); border-radius: 5px; color: var(--text); padding: 7px 14px; cursor: pointer; }
+.save-btn:hover { background: var(--bg3); }
+.run-btn  {
+  background: var(--accent); border: none; border-radius: 5px; color: #fff;
+  padding: 8px 22px; cursor: pointer; display: flex; align-items: center; gap: 7px;
+  font-weight: 500; transition: opacity .2s;
+}
+.run-btn:disabled { opacity: 0.4; cursor: default; }
+.run-btn.busy { background: #4a4a00; }
+
+/* ── Right: Response ── */
+.response { width: 400px; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+.resp-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 12px; background: var(--bg2); border-bottom: 1px solid var(--border);
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); flex-shrink: 0;
+}
+.resp-body { flex: 1; overflow-y: auto; padding: 14px; background: var(--bg); }
+
+/* Markdown in response */
+.resp-body h1,.resp-body h2,.resp-body h3 { color: #e0e0e0; margin: 12px 0 5px; font-size: 14px; }
+.resp-body p    { margin: 6px 0; line-height: 1.65; }
+.resp-body ul,.resp-body ol { padding-left: 20px; margin: 6px 0; }
+.resp-body li   { margin: 3px 0; line-height: 1.55; }
+.resp-body strong { color: #e0e0e0; }
+.resp-body em   { color: #d4d4d4; }
+.resp-body blockquote { border-left: 3px solid var(--border); padding-left: 10px; color: var(--muted); margin: 8px 0; }
+.resp-body hr   { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+.resp-body code:not(pre code) {
+  background: #21262d; padding: 1px 6px; border-radius: 4px;
+  font-family: Consolas, monospace; font-size: 12px; color: #f78166;
+}
+.resp-body pre  { margin: 0; }
+.code-block { margin: 8px 0; border: 1px solid #30363d; border-radius: 6px; overflow: hidden; }
+.code-hdr {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 12px; background: #161b22; border-bottom: 1px solid #30363d;
+}
+.code-lang { color: #7d8590; font-size: 11px; font-family: monospace; }
+.copy-btn  { background: none; border: none; color: #7d8590; cursor: pointer; font-size: 11px; padding: 2px 7px; border-radius: 3px; }
+.copy-btn:hover { color: #ccc; background: #30363d; }
+.resp-body pre.hljs-block { padding: 12px 14px; font-size: 12.5px; line-height: 1.6; overflow-x: auto; background: #0d1117; }
+
+/* Loading dots */
+.dots { display: flex; gap: 5px; padding: 18px 0; }
+.dot  { width: 8px; height: 8px; border-radius: 50%; background: var(--purple); animation: db 1.2s ease-in-out infinite; }
+.dot:nth-child(2) { animation-delay: .18s; }
+.dot:nth-child(3) { animation-delay: .36s; }
+@keyframes db { 0%,60%,100%{transform:scale(.3);opacity:.4} 30%{transform:scale(1);opacity:1} }
+
+/* Stream text */
+.stream-pre { white-space: pre-wrap; font-family: Consolas, monospace; font-size: 12.5px; line-height: 1.6; color: #d4d4d4; }
+
+/* Empty state */
+.empty { text-align: center; color: var(--muted); margin-top: 60px; }
+.empty-icon { font-size: 36px; margin-bottom: 10px; }
+
+/* Error box */
+.err-box { background: #3a1a1a; border: 1px solid #5a2a2a; border-radius: 5px; padding: 10px 13px; color: var(--red); font-size: 12px; }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #424242; border-radius: 3px; }
+
+/* Toast */
+#toast {
+  position: fixed; bottom: 18px; right: 18px; padding: 9px 14px;
+  border-radius: 5px; font-size: 12px; z-index: 999; opacity: 0;
+  transition: opacity .2s; pointer-events: none;
+}
+#toast.show.ok  { opacity: 1; background: #173317; color: var(--teal); border: 1px solid #2a5a2a; }
+#toast.show.err { opacity: 1; background: #3a1a1a; color: var(--red); border: 1px solid #5a2a2a; }
+</style>
+</head>
+<body>
+
+<!-- ── Topbar ── -->
+<div class="topbar">
+  <div class="brand">
+    ✨ Copilot Bridge
+    <span class="chip" id="conn-chip">Connecting…</span>
+    <span class="chip hi" id="model-chip" style="display:none"></span>
+  </div>
+  <div class="tb-right">
+    <span class="ctx-info" id="ctx-info"></span>
+    <button class="tb-btn" onclick="pollCtx()" title="Refresh VS Code context">↻ Refresh</button>
+    <button class="tb-btn" onclick="resetAll()" title="Reset commands to defaults">↺ Reset</button>
+  </div>
+</div>
+
+<!-- ── Layout ── -->
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <div class="library">
+    <div class="phead">
+      Commands
+      <button class="xs-btn" onclick="newCmd()">+ New</button>
+    </div>
+    <div class="srch">
+      <input id="q" placeholder="Search…" oninput="renderList()">
+    </div>
+    <div class="cmd-list" id="cmd-list"></div>
+  </div>
+
+  <!-- ── Editor ── -->
+  <div class="editor">
+    <div class="ed-head">
+      <input class="name-in" id="name" placeholder="Command name…" oninput="dirty=true">
+      <input class="cat-in"  id="cat"  placeholder="Category"      oninput="dirty=true" value="General">
+    </div>
+    <div class="ed-body">
+
+      <!-- Template -->
+      <div>
+        <div class="slbl">Prompt Template</div>
+        <textarea class="tpl-area" id="tpl" rows="5" oninput="onTplChange()"
+          placeholder="Type your prompt. Use {{variable}} for placeholders.&#10;&#10;Built-in (auto-filled from VS Code):&#10;  {{selection}}  {{file}}  {{language}}  {{line}}&#10;&#10;Custom: any other {{varName}} shows as a text input."></textarea>
+        <div class="hint">Auto-filled from VS Code: <code>{{selection}}</code> <code>{{file}}</code> <code>{{language}}</code> <code>{{line}}</code></div>
+      </div>
+
+      <!-- Variables -->
+      <div id="vars-wrap" style="display:none">
+        <div class="slbl">Template Variables</div>
+        <div class="var-list" id="vars"></div>
+      </div>
+
+      <!-- VS Code Context -->
+      <div>
+        <div class="slbl">Live VS Code Context</div>
+        <div class="ctx-box" id="ctx-box">
+          <div class="ctx-row" style="color:#4a4a4a;font-style:italic">Open a file in VS Code…</div>
+        </div>
+      </div>
+
+      <!-- Options -->
+      <div>
+        <div class="slbl">Options</div>
+        <div class="opts">
+          <label class="opt-row"><input type="checkbox" id="opt-ed"  checked> Include editor context (current file + selection)</label>
+          <label class="opt-row"><input type="checkbox" id="opt-dbg">          Include active debug session info</label>
+          <label class="opt-row"><input type="checkbox" id="opt-diag">         Include VS Code diagnostics / error squiggles</label>
+          <label class="opt-row"><input type="checkbox" id="opt-panel">        Also open VS Code Chat panel</label>
+        </div>
+      </div>
+
+    </div>
+    <div class="ed-foot">
+      <button class="save-btn" onclick="saveCmd()">💾 Save</button>
+      <button class="run-btn" id="run-btn" onclick="runCmd()">▶ Run</button>
+    </div>
+  </div>
+
+  <!-- ── Response ── -->
+  <div class="response">
+    <div class="resp-head">
+      <span>Response</span>
+      <div style="display:flex;gap:6px">
+        <button class="tb-btn" onclick="copyResp()" title="Copy response">⎘ Copy</button>
+        <button class="tb-btn" onclick="clearResp()" title="Clear">✕ Clear</button>
+      </div>
+    </div>
+    <div class="resp-body" id="resp-body">
+      <div class="empty">
+        <div class="empty-icon">💬</div>
+        <div>Pick a command and click <strong>Run</strong></div>
+        <div style="margin-top:6px;font-size:12px;color:#4a4a4a">Copilot responds in real time via vscode.lm</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+const API = window.location.origin;
+const SYS = ['selection', 'file', 'language', 'line'];
+const ICONS = { Analysis:'🔍', Debug:'🐛', Testing:'🧪', Quality:'✨', General:'💬' };
+
+let cmds = [], activeId = null, dirty = false, vsCtx = null, running = false, lastRaw = '';
+
+// ── Init ──────────────────────────────────────────────────
+async function init() {
+  await Promise.all([loadCmds(), pollCtx(), checkHealth()]);
+  setInterval(pollCtx, 4000);
+  setInterval(checkHealth, 15000);
+}
+
+// ── Health ────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const d = await apiFetch('/health');
+    setChip('conn-chip', '● Connected', 'ok');
+    if (d.models?.length) {
+      const m = d.models[0];
+      setChip('model-chip', m.family || m.name, 'hi', true);
+    }
+  } catch {
+    setChip('conn-chip', '● Offline', 'err');
+    ge('model-chip').style.display = 'none';
+  }
+}
+
+// ── Context ───────────────────────────────────────────────
+async function pollCtx() {
+  try {
+    vsCtx = await apiFetch('/context');
+    renderCtx();
+    refreshVars();
+    const info = vsCtx?.editor
+      ? `📄 ${vsCtx.editor.fileName}  ·  ${vsCtx.editor.language}${vsCtx.editor.selectionRange ? '  ·  '+vsCtx.editor.selectionRange : ''}`
+      : '';
+    ge('ctx-info').textContent = info;
+  } catch { /* extension not connected yet */ }
+}
+
+function renderCtx() {
+  const box = ge('ctx-box');
+  if (!vsCtx?.editor) {
+    box.innerHTML = '<div class="ctx-row" style="color:#4a4a4a;font-style:italic">Open a file in VS Code…</div>';
+    return;
+  }
+  const e = vsCtx.editor;
+  const rows = [
+    ['File',     e.fileName,       ''],
+    ['Language', e.language,       ''],
+    e.selectionRange
+      ? ['Selection', `${e.selectionRange}  (${e.selection?.length ?? 0} chars)`, 'hi']
+      : ['Cursor',    `Line ${e.cursorLine}`, ''],
+    e.isDirty ? ['Status', 'Unsaved changes', 'warn'] : null,
+    vsCtx.debug ? ['Debug', `${vsCtx.debug.name} (${vsCtx.debug.type})`, ''] : null,
+    ...(vsCtx.diagnostics || []).map(d => ['⚠ L'+d.line, d.msg, 'warn']),
+  ].filter(Boolean);
+
+  box.innerHTML = rows.map(([k, v, cls]) =>
+    `<div class="ctx-row"><span class="ctx-k">${esc(k)}</span><span class="ctx-v ${cls}">${esc(String(v))}</span></div>`
+  ).join('');
+}
+
+// ── Commands ──────────────────────────────────────────────
+async function loadCmds() {
+  try {
+    cmds = await apiFetch('/commands');
+    renderList();
+    if (cmds.length) selectCmd(cmds[0].id);
+  } catch { cmds = []; }
+}
+
+function renderList() {
+  const q = ge('q').value.toLowerCase();
+  const filtered = q ? cmds.filter(c => (c.name + c.category).toLowerCase().includes(q)) : cmds;
+  const cats = {};
+  filtered.forEach(c => { const k = c.category || 'General'; (cats[k] = cats[k] || []).push(c); });
+
+  ge('cmd-list').innerHTML = Object.entries(cats).map(([cat, list]) =>
+    `<div class="cat-lbl">${esc(cat)}</div>` +
+    list.map(c => `
+      <div class="cmd-row ${c.id === activeId ? 'sel' : ''}" onclick="selectCmd('${c.id}')">
+        <span class="cmd-icon">${ICONS[c.category] || '📝'}</span>
+        <span class="cmd-lbl" title="${esc(c.name)}">${esc(c.name)}</span>
+        <button class="del-btn" onclick="delCmd(event,'${c.id}')" title="Delete">×</button>
+      </div>`).join('')
+  ).join('');
+}
+
+function selectCmd(id) {
+  activeId = id;
+  const c = cmds.find(x => x.id === id);
+  if (!c) return;
+  ge('name').value      = c.name || '';
+  ge('cat').value       = c.category || 'General';
+  ge('tpl').value       = c.template || '';
+  ge('opt-ed').checked  = c.includeEditorContext !== false;
+  ge('opt-dbg').checked = !!c.includeDebugContext;
+  ge('opt-diag').checked= !!c.includeDiagnostics;
+  ge('opt-panel').checked = !!c.openInPanel;
+  dirty = false;
+  renderList();
+  onTplChange();
+}
+
+function newCmd() {
+  activeId = null; dirty = false;
+  ge('name').value = ''; ge('cat').value = 'General'; ge('tpl').value = '';
+  ge('opt-ed').checked = true; ge('opt-dbg').checked = false;
+  ge('opt-diag').checked = false; ge('opt-panel').checked = false;
+  renderList(); onTplChange(); ge('name').focus();
+}
+
+async function saveCmd() {
+  const c = {
+    id:                   activeId,
+    name:                 ge('name').value || 'Untitled',
+    category:             ge('cat').value  || 'General',
+    template:             ge('tpl').value,
+    includeEditorContext: ge('opt-ed').checked,
+    includeDebugContext:  ge('opt-dbg').checked,
+    includeDiagnostics:   ge('opt-diag').checked,
+    openInPanel:          ge('opt-panel').checked,
+  };
+  try {
+    const saved = await apiFetch('/commands', { method: 'POST', body: c });
+    activeId = saved.id;
+    cmds = [...cmds.filter(x => x.id !== saved.id), saved];
+    dirty = false; renderList(); toast('Saved ✓', 'ok');
+  } catch (e) { toast('Save failed: ' + e.message, 'err'); }
+}
+
+async function delCmd(ev, id) {
+  ev.stopPropagation();
+  if (!confirm('Delete this command?')) return;
+  await fetch(API + '/commands/' + id, { method: 'DELETE' });
+  cmds = cmds.filter(c => c.id !== id);
+  if (activeId === id) newCmd();
+  renderList();
+}
+
+async function resetAll() {
+  if (!confirm('Reset all commands to defaults? Your saved commands will be lost.')) return;
+  cmds = await apiFetch('/commands/reset', { method: 'POST' });
+  renderList();
+  if (cmds.length) selectCmd(cmds[0].id);
+  toast('Commands reset to defaults', 'ok');
+}
+
+// ── Template Variables ────────────────────────────────────
+function onTplChange() {
+  dirty = true; refreshVars();
+}
+
+function refreshVars() {
+  const tpl  = ge('tpl').value;
+  const all  = [...new Set([...tpl.matchAll(/{{(\w+)}}/g)].map(m => m[1]))];
+  const auto = getSysVals();
+
+  if (!all.length) { ge('vars-wrap').style.display = 'none'; return; }
+  ge('vars-wrap').style.display = '';
+
+  ge('vars').innerHTML = all.map(v => {
+    if (SYS.includes(v)) {
+      const val = auto[v];
+      return `<div class="var-row">
+        <span class="var-tag">{{${v}}}</span>
+        <span class="var-auto">${val ? esc(val.substring(0, 65)) + (val.length > 65 ? '…' : '') : '(not available)'}</span>
+      </div>`;
+    }
+    return `<div class="var-row">
+      <span class="var-tag">{{${v}}}</span>
+      <input class="var-inp" id="vv-${v}" placeholder="Enter ${v}…">
+    </div>`;
+  }).join('');
+}
+
+function getSysVals() {
+  const e = vsCtx?.editor;
+  if (!e) return {};
+  return { selection: e.selection, file: e.fileName, language: e.language, line: String(e.cursorLine) };
+}
+
+function resolveTemplate() {
+  let tpl = ge('tpl').value;
+  const sys = getSysVals();
+  SYS.forEach(v => { if (sys[v]) tpl = tpl.replaceAll(`{{${v}}}`, sys[v]); });
+  document.querySelectorAll('[id^="vv-"]').forEach(inp => {
+    const name = inp.id.slice(3);
+    tpl = tpl.replaceAll(`{{${name}}}`, inp.value);
+  });
+  return tpl;
+}
+
+// ── Run ───────────────────────────────────────────────────
+async function runCmd() {
+  if (running) return;
+  const prompt = resolveTemplate();
+  if (!prompt.trim()) { toast('Empty prompt', 'err'); return; }
+
+  running = true; lastRaw = '';
+  const btn = ge('run-btn');
+  btn.disabled = true; btn.textContent = '⏳ Running…'; btn.classList.add('busy');
+
+  const rb = ge('resp-body');
+  rb.innerHTML = '<div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+
+  try {
+    const resp = await fetch(API + '/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        includeEditorContext: ge('opt-ed').checked,
+        includeDebugContext:  ge('opt-dbg').checked,
+        includeDiagnostics:   ge('opt-diag').checked,
+        openInPanel:          ge('opt-panel').checked,
+      }),
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const reader = resp.body.getReader();
+    const dec    = new TextDecoder();
+    let   buf    = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop(); // keep last incomplete line
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let d;
+        try { d = JSON.parse(line.slice(6)); } catch { continue; }
+
+        if (d.type === 'model') {
+          setChip('model-chip', d.family || d.name, 'hi', true);
+
+        } else if (d.type === 'start') {
+          rb.innerHTML = '<pre class="stream-pre" id="stream-pre"></pre>';
+
+        } else if (d.type === 'chunk') {
+          lastRaw += d.text;
+          const pre = ge('stream-pre');
+          if (pre) { pre.textContent = lastRaw; rb.scrollTop = rb.scrollHeight; }
+
+        } else if (d.type === 'end') {
+          rb.innerHTML = renderMd(lastRaw);
+          rb.scrollTop = rb.scrollHeight;
+
+        } else if (d.type === 'error') {
+          rb.innerHTML = `<div class="err-box">⚠️ ${esc(d.message)}</div>`;
+        }
+      }
+    }
+  } catch (e) {
+    rb.innerHTML = `<div class="err-box">⚠️ ${esc(e.message)}</div>`;
+  } finally {
+    running = false;
+    btn.disabled = false; btn.textContent = '▶ Run'; btn.classList.remove('busy');
+  }
+}
+
+// ── Markdown rendering ────────────────────────────────────
+function renderMd(text) {
+  const html = marked.parse(text);
+
+  // Post-process: add code headers + copy buttons + syntax highlighting
+  const div = document.createElement('div');
+  div.innerHTML = html;
+
+  div.querySelectorAll('pre').forEach(pre => {
+    const code = pre.querySelector('code');
+    if (!code) return;
+
+    // Detect language
+    const cls  = code.className || '';
+    const lang = cls.replace('language-', '') || 'code';
+    const raw  = code.textContent || '';
+
+    // Highlight
+    try {
+      if (lang && lang !== 'code' && hljs.getLanguage(lang)) {
+        code.innerHTML = hljs.highlight(raw, { language: lang }).value;
+      } else {
+        code.innerHTML = hljs.highlightAuto(raw).value;
+      }
+      code.classList.add('hljs');
+    } catch {}
+
+    // Wrap with header
+    pre.className = 'hljs-block';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'code-block';
+    const hdr = document.createElement('div');
+    hdr.className = 'code-hdr';
+    hdr.innerHTML = `<span class="code-lang">${esc(lang)}</span><button class="copy-btn">Copy</button>`;
+    hdr.querySelector('.copy-btn').addEventListener('click', () => {
+      navigator.clipboard.writeText(raw);
+      hdr.querySelector('.copy-btn').textContent = 'Copied!';
+      setTimeout(() => { hdr.querySelector('.copy-btn').textContent = 'Copy'; }, 2000);
+    });
+    pre.parentNode.replaceChild(wrapper, pre);
+    wrapper.appendChild(hdr);
+    wrapper.appendChild(pre);
+  });
+
+  return div.innerHTML;
+}
+
+// ── Utilities ─────────────────────────────────────────────
+function clearResp() {
+  lastRaw = '';
+  ge('resp-body').innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div>Pick a command and click <strong>Run</strong></div></div>';
+}
+
+function copyResp() {
+  if (!lastRaw) return;
+  navigator.clipboard.writeText(lastRaw);
+  toast('Copied to clipboard', 'ok');
+}
+
+function ge(id) { return document.getElementById(id); }
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setChip(id, text, cls, show = true) {
+  const c = ge(id);
+  c.textContent = text;
+  c.className   = 'chip' + (cls ? ' ' + cls : '');
+  c.style.display = show ? '' : 'none';
+}
+
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(API + path, {
+    method:  opts.method || 'GET',
+    headers: opts.body ? { 'Content-Type': 'application/json' } : {},
+    body:    opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  return res.json();
+}
+
+function toast(msg, type = 'ok') {
+  const t = ge('toast');
+  t.textContent = msg;
+  t.className   = `show ${type}`;
+  setTimeout(() => { t.className = ''; }, 2800);
+}
+
+// ── Boot ──────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>

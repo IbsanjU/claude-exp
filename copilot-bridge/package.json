@@ -1,0 +1,29 @@
+{
+  "name": "copilot-bridge",
+  "displayName": "Copilot Bridge",
+  "description": "Build and run custom commands against GitHub Copilot from a local web UI. Uses the official vscode.lm Language Model API.",
+  "version": "1.0.0",
+  "publisher": "ibsanju",
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "copilotBridge.openUI",
+        "title": "Copilot Bridge: Open Command UI",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "copilotBridge.resetCommands",
+        "title": "Copilot Bridge: Reset to Default Commands"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        { "command": "copilotBridge.openUI", "group": "navigation", "when": "editorIsOpen" }
+      ]
+    }
+  }
+}
